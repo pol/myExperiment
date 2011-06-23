@@ -1,2 +1,3 @@
 .rvmrc
 config/default_settings.yml
+config/captcha.yml
