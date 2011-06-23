@@ -1,0 +1,102 @@
+MyExperiment Developers' Guide
+------------------------------
+
+Contents
+--------
+
+
+
+1. Introduction
+---------------
+This guide is based on the original instructions to get myExperiment dev up and running, but it uses RVM (Ruby Version Manager) to create an isolated environment for development.  This will prevent the strict requirements of myExperiment from clobbering your other ruby development libraries.  This guide is made from an install on an OSX 10.6.7 development workstation, though it should be pretty much teh same on any posix compliant system with a gcc compiler (so: not windows). 
+
+Note: none of this needs to be done as sudo or a root user if you use RVM.
+
+
+2. Installing RVM and Preparing an Environment for Development
+--------------------------------------------------------------
+
+A. Use the instructions at the RVM website to install RVM:
+* https://rvm.beginrescueend.com/
+* This generally involves running a bash script to install rvm and then updating your bash profile to load the RVM system when you start up terminal.
+* At the end of the install, you should be able to run `rvm --version` and get back at least v1.6.3.
+
+B. Install ruby 1.8.7 (latest version)
+* run: `rvm install 1.8.7` 
+* if you type `which ruby`, it should return the path to the 1.8.6 ruby binary inside the rvm directories.  if you type `ruby --version` it should return the same version of ruby that you just installed.
+
+C. Create a gemset for myexperiment
+* run: `rvm gemset create myexperiment`
+* run: `rvm use gemset myexperiment`
+* From this point forward, you can use the correct ruby and gemset by typing: `rvm use 1.8.7@myexperiment`
+
+D. Create an .rvmrc (optional)
+* create a .rvmrc file and put `rvm use 1.8.7@myexperiment` in the first line (without backticks)
+* now, when you enter the directory RVM will ask for permission to use the rvmrc file, and if you approve it, then it will automatically use that version when you enter the directory.
+
+2.1 Get the Code
+
+* git clone https://github.com/pol/myexperiment
+
+2.2 Installing the Rest of the System
+-------------------------------------
+
+* Install Rails
+ - `gem install -v=1.2.6 rails
+
+* Install RMagick
+ - `gem install rmagick`
+ - this requires the imagemagick libraries, install them from source or use your favorite package manager.  Note:  imagemagick can be a gigantic pain to install, pray that it works the first time.
+
+* Install graphviz
+ - Install a system package, from source, or use your favorite package manager to install graphviz.
+
+* Install "the other gems"
+ - gem install builder cgi_multipart_eof_fix daemons dsl_accessor fastthread gem_plugin hoe json mime-types mongrel mongrel_cluster needle net-sftp net-ssh openid_login_generator RedCloth ruby-yadis solr-ruby xml-simple rubyzip libxml-ruby oauth ruby-hmac ruby-openid --include-dependencies
+ - NOTE: only install the mongrel gems if you are going to be webserving with mongrel
+
+* Install the 'held-back' gems
+ - gem uninstall ruby-openid; gem install -v=1.1.4 ruby-openid
+ - gem uninstall rmagick;  gem install -v=1.15.14 rmagick
+
+* OAuth was originally designed for Rails 2 and therefore some of the code in the GEM will not work in Rails 1.2.6.  To fixed this go to GEM_LIBRARY/oauth-0.2.4/lib/oauth/request_proxy/action_controller_request.rb and replace the contents of def request_params with:
+    unless @request_parameters
+      @request_parameters = request.request_parameters.dup
+      request.symbolized_path_parameters.keys.each do |k|
+        @request_parameters.delete k.to_s
+      end if request.respond_to? :symbolized_path_parameters
+    end
+    @request_parameters
+
+* Now the Taverna GEM can be installed by using the following command from vendor/gems/taverna/ directory:
+root> gem install taverna-0.5.1.gem
+
+* Before going any further, check to see which version of ruby has been installed:
+root> ruby --version
+   * If this is < v1.86 you will need to compile from source using http://ftp.ruby-lang.org/pub/ruby/1.8/ruby-1.8.6-p286.tar.gz.
+
+* Now load up a mysql shell and create three databases as follows: 
+mysql> create database m2_development;
+mysql> create database m2_production;
+mysql> create database m2_test;
+
+* After exiting mysql switch user back to your username and change directory to /var/rails/myexperiment/trunk/config/ In the directory:
+  * Copy database.yml.pre to database.yml.
+  * Edit database.yml adding the appropriate passwords and usernames for the three databases.
+  * Copy environment_private.rb.pre to environment_private.rb
+  * Edit environment_private.rb. In particular to set the correct details for SMTP to allow emails to be sent by MyExperiment. Also make sure SOLR_ENABLE is set to true so that data in your MyExperiment can be indexed and searched over by users. 
+  * Copy captcha.yml.pre to captcha.yml.
+  * Edit captcha.yml to set it to the words you want to use in your captchas.
+
+
+
+* Now execute the following commands just as a user:
+user> rake db:migrate
+user> rake solr:start
+user> ./resolr.sh
+
+* '''./resolr.sh'''  may take some time to run (i.e. in the 5 minutes range) as it indexes the database to make searching quicker.  After this has run the webserver can be started with the following command:
+
+user> ruby script/server
+
+* This should start a mongrel webserver running on port 3000 of the installation system. To see if this has worked load up a web browser and go to http://localhost:3000
